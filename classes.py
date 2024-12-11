@@ -174,6 +174,10 @@ class Complex:
 
     @property
     def real(self):
+        if isinstance(self._real, Fraction):
+            if self._real.denominator == 1:
+                self._real = self._real.numerator
+
         return self._real
 
     @real.setter
@@ -182,6 +186,9 @@ class Complex:
 
     @property
     def imagine(self):
+        if isinstance(self._imagine, Fraction):
+            if self._imagine.denominator == 1:
+                self._imagine = self._imagine.numerator
         return self._imagine
 
     @imagine.setter
