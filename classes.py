@@ -4,55 +4,77 @@ import math
 class Fraction:
     def __init__(self, num, denom=1):
         if denom == 0:
-            raise ValueError("denominator cannot be zero")
-
-        if isinstance(num, float):
-            num, denom = self._float_to_fraction(num)
-        if isinstance(denom, float):
-            temp_num, temp_denom = self._float_to_fraction(denom)
-            num, denom = temp_denom, temp_num
+            raise ValueError("Denominator cannot be zero")
 
         if isinstance(num, Fraction) or isinstance(denom, Fraction):
-            if isinstance(num, Fraction) and isinstance(denom, Fraction):
-                num = num.numerator * denom.denominator
-                denom = num.denominator * denom.numerator
+            self._handle_fraction_input(num, denom)
+        else:
+            self._handle_float_input(num, denom)
 
-            elif isinstance(num, Fraction):
-                num_numerator = num.numerator
-                num_denominator = num.denominator
-                num = num_numerator
-                denom = num_denominator * denom
+        self._simplify()
 
-            else:
-                num = num * denom.denominator
-                denom = denom.numerator
+    def _handle_fraction_input(self, num, denom):
+        """num или denom — это объект Fraction"""
+        if isinstance(num, Fraction) and isinstance(denom, Fraction):
+            self.numerator = num.numerator * denom.denominator
+            self.denominator = num.denominator * denom.numerator
+        elif isinstance(num, Fraction):
+            self.numerator = num.numerator
+            self.denominator = num.denominator * denom
+        elif isinstance(denom, Fraction):
+            self.numerator = num * denom.denominator
+            self.denominator = denom.numerator
 
-        if not isinstance(num, int) or not isinstance(denom, int):
-            raise TypeError("numerator and denominator must be integers")
+    def _handle_float_input(self, num, denom):
+        """num или denom — это вещественные числа"""
+        num_num, num_denom = None, None
+        den_num, den_denom = None, None
 
-        gcd_val = math.gcd(num, denom)
-        self.numerator = num // gcd_val
-        self.denominator = denom // gcd_val
+        if isinstance(num, float):
+            num_num, num_denom = self._float_to_fraction(num)
+        if isinstance(denom, float):
+            den_num, den_denom = self._float_to_fraction(denom)
+
+        # Обработка полученных чисел и знаменателей
+        if num_num is not None and den_num is not None:
+            self.numerator = num_num * den_denom
+            self.denominator = den_num * num_denom
+        elif num_num is not None:
+            self.numerator = num_num
+            self.denominator = num_denom * denom
+        elif den_num is not None:
+            self.numerator = den_denom * num
+            self.denominator = den_num
+
+        # Если переданы только целые числа
+        elif isinstance(num, int) and isinstance(denom, int):
+            self.numerator = num
+            self.denominator = denom
+
+    def _simplify(self):
+        gcd_val = math.gcd(self.numerator, self.denominator)
+        self.numerator //= gcd_val
+        self.denominator //= gcd_val
 
         if self.denominator < 0:
             self.numerator = -self.numerator
             self.denominator = -self.denominator
 
-    def _float_to_fraction(self, num, epsilon=1e-9,
-                           max_iter=200):  # https://stackoverflow.com/questions/5124743/algorithm-for-simplifying-decimal-to-fractions/5124834#5124834
-        d = [0, 1] + ([0] * max_iter)
-        z = num
-        n = 1
-        t = 1
-        if z.is_integer():
-            return int(z), 1
-        while num and t < max_iter and abs(n / d[t] - num) > epsilon:
-            t += 1
-            z = 1 / (z - int(z))
-            d[t] = d[t - 1] * int(z) + d[t - 2]
-            n = int(num * d[t] + 0.5)
+    def _float_to_fraction(self, num):
+        if num.is_integer():
+            return int(num), 1
 
-        return n, d[t]
+        sign = -1 if num < 0 else 1
+        num = abs(num)
+        decimal_places = len(str(num).split('.')[-1])
+        denom = 10 ** decimal_places
+        numerator = round(num * denom)
+
+        gcd_val = math.gcd(numerator, denom)
+        numerator //= gcd_val
+        denom //= gcd_val
+
+        return sign * numerator, denom
 
     def __str__(self):
         if self.denominator == 1:
@@ -60,9 +82,6 @@ class Fraction:
         return f"{self.numerator}/{self.denominator}"
 
     def __repr__(self):
-        # if self.denominator == 1:
-        #     return str(self.numerator)
-        # return f"{self.numerator}/{self.denominator}"
         return f"{self.__class__.__name__}(numerator={self.numerator}, denominator={self.denominator})"
 
     def __add__(self, other):
@@ -272,33 +291,41 @@ class Complex:
 
             return self.__class__(real, imagine)
 
-        return TypeError("argument must be an integer")
+        return NotImplemented
 
     def __iadd__(self, other):
         if isinstance(other, self.__class__):
-            self.real += other.real
-            self.imagine += other.imagine
+            self._real += other._real
+            self._imagine += other._imagine
         elif isinstance(other, int | float | Fraction):
-            self.real += other
+            self._real += Fraction(other)
+            self._imagine += Fraction(other)
+        else:
+            return NotImplemented
         return self
 
     def __isub__(self, other):
         if isinstance(other, self.__class__):
-            self.real -= other.real
-            self.imagine -= other.imagine
+            self._real -= other._real
+            self._imagine -= other._imagine
         elif isinstance(other, int | float | Fraction):
-            self.real -= other
+            self._real -= Fraction(other)
+            self._imagine -= Fraction(other)
+        else:
+            return NotImplemented
         return self
 
     def __imul__(self, other):
         if isinstance(other, self.__class__):
-            real = self.real * other.real - self.imagine * other.imagine
-            imagine = self.real * other.imagine + self.imagine * other.real
-            self.real = real
-            self.imagine = imagine
+            real = self._real * other._real - self._imagine * other._imagine
+            imagine = self._real * other._imagine + self._imagine * other._real
+            self._real = real
+            self._imagine = imagine
         elif isinstance(other, int | float | Fraction):
-            self.real *= other
-            self.imagine *= other
+            self._real *= Fraction(other)
+            self._imagine *= Fraction(other)
+        else:
+            return NotImplemented
         return self
 
     def __idiv__(self, other):
@@ -310,15 +337,21 @@ class Complex:
             imagine = (self.imagine * other.real - self.real * other.imagine) / denom
             self.real = real
             self.imagine = imagine
+            return self
         elif isinstance(other, int | float | Fraction):
             if other == 0:
                 raise ZeroDivisionError
-            self.real /= other
-            self.imagine /= other
-        return self
+            self.real = Fraction(self.real)
+            self.imagine = Fraction(self.imagine)
+            self.real /= Fraction(other)
+            self.imagine /= Fraction(other)
+            return self
+        return NotImplemented
 
     def __neg__(self):
         return self.__class__(-self.real, -self.imagine)
 
     def arg(self):
         return math.atan2(float(self.imagine), float(self.real))
+
+
